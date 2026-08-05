@@ -79,26 +79,3 @@ run the container:
 ```
 docker run -d --name iua-sim-client -p 8080:8080 --network my_network iua-sim-client
 ```
-
-
-## Docker hints:
-
-On a user-defined bridge network, containers should reach each other using
-- the container’s internal port (the port the process listens on inside the container), and
-- the other container’s name as the hostname (e.g., iua-ru-mock, iua-sim-serv).
-- The -p 9090:9090 / -p 9000:9000 / -p 8080:8080 parts are for host ↔ container traffic, not container ↔ container.
-
-So if inside iua-sim-client you configured something like:
-- ```http://localhost:9090``` that will hit the client container itself, not the service in other container
-- ```http://{$other-container-name}:9090``` is fine only if the conatiner named {$other-container-name} actually listens on 9090 inside it's container
-
-Even if containers can resolve each other, HTTP won’t work if the server binds only to loopback address.
-You need the server to listen on:
-- 0.0.0.0 (all interfaces) or the container’s network interface, not just 127.0.0.1.
-- If the app listens only on localhost, then other containers can’t reach it.
-
-Within the bridge network (e.g., my_network), you must use the container name as DNS:
-```
-http://{$container-name}:<internalPort>/...
-```
-Localhost is always the container the request originates, not the another one on your machine.
