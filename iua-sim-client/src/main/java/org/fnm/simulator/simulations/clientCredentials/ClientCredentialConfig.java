@@ -1,0 +1,133 @@
+package org.fnm.simulator.simulations.clientCredentials;
+
+import net.ihe.gazelle.simulation.business.callback.Role;
+import net.ihe.gazelle.simulation.business.setup.*;
+import org.jboss.logging.Logger;
+
+import java.util.List;
+
+/**
+ * Container for the simulation configuration and parameters.
+ */
+public class ClientCredentialConfig {
+
+    private static final Logger LOG = Logger.getLogger(ClientCredentialConfig.class);
+
+    // fixed for IUA client simulation
+    public final Role initiator;
+    public final Role responder;
+
+    // parameter read from setup indicating the current test session
+    public String sessionId;
+
+    // the identity of the sequence supported by the simulation
+    public String sequenceId;
+
+    public long timeoutInSeconds;
+
+    // parameters read from setup
+    public List<Parameter> simulationParameters;
+
+    // parameter read from setup
+    public String tokenEndpointUrl;
+    public String clientId;
+    public String clientSecret;
+    public String scope;
+    public String personId;
+    public String principal;
+    public String principalId;
+    public String jwtPublicKey;
+
+    /**
+     * Container for the simulation configuration parameters.
+     * @param sessionId the current test session
+     * @param simulationRequest the information required for a single simulation run
+     */
+    public ClientCredentialConfig(String sessionId, SimulationRequest simulationRequest) {
+
+        this.sessionId = sessionId;
+        this.sequenceId = simulationRequest.getSequenceId();
+        this.simulationParameters = simulationRequest.getSimulationParameters();
+
+        this.timeoutInSeconds = simulationRequest.getTimeoutSeconds();
+
+        initiator = new Role();
+        initiator.setName("IUA Client");
+        initiator.setConfigs(List.of());
+        initiator.setSimulated(true);
+
+        responder = new Role();
+        responder.setName("CH:IUA Server");
+        responder.setConfigs(List.of());
+
+        // parse parameters
+        for (Parameter parameter : simulationParameters) {
+
+            String name = parameter.getName();
+            ParameterType type = parameter.getType();
+
+            if ((type != null) && type.equals(ParameterType.TEXT)){
+                switch (name) {
+                    case "token_endpoint_url" -> tokenEndpointUrl = parameter.getValue();
+                    case "client_id" -> clientId = parameter.getValue();
+                    case "client_secret" -> clientSecret = parameter.getValue();
+                    case "scope" -> scope = parameter.getValue();
+                    case "person_id" -> personId = parameter.getValue();
+                    case "principal" -> principal = parameter.getValue();
+                    case "principal_id" -> principalId = parameter.getValue();
+                    case "jwt_public_key" -> jwtPublicKey = parameter.getValue();
+                }
+            }
+        }
+    }
+
+    /**
+     * Validate the configuration.
+     * @return AdditionalInstructions information about the validation result.
+     */
+    public AdditionalInstructions validate() {
+
+        StringBuilder builder = new StringBuilder();
+
+        if (tokenEndpointUrl == null || tokenEndpointUrl.isBlank())
+            builder.append("Token endpoint URL is not set.");
+
+        if (clientId == null || clientId.isBlank())
+            builder.append("Client id is not set.");
+
+        if (clientSecret == null || clientSecret.isBlank())
+            builder.append("Client secret is not set.");
+
+        if (scope == null || scope.isBlank())
+            builder.append("Scope is not set.");
+
+        if (principal == null || principal.isBlank())
+            builder.append("Principal is not set.");
+
+        if (principalId == null || principalId.isBlank())
+            builder.append("Principal id is not set.");
+
+        if (jwtPublicKey == null || jwtPublicKey.isBlank())
+            builder.append("JWT public key is not set.");
+
+        String message = builder.toString();
+        if (!message.isBlank()) {
+            LOG.error(message);
+            AdditionalInstructions additionalInstructions = new AdditionalInstructions();
+            additionalInstructions.setSimulationId(sequenceId);
+            additionalInstructions.setInstruction(message);
+            return additionalInstructions; // new SwitchToExecution();
+        }
+
+        return null;
+    }
+
+    /**
+     * Check if the request is for an extended or basic token.
+     * @return true if the person_id is set, false otherwise.
+     */
+    public boolean isForExtendedToken() {
+        return personId != null && !personId.isBlank();
+    }
+
+}

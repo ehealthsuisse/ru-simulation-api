@@ -1,0 +1,253 @@
+package org.fnm.simulator;
+
+import com.fasterxml.jackson.databind.json.JsonMapper;
+import io.quarkus.logging.Log;
+import io.quarkus.scheduler.Scheduled;
+import jakarta.enterprise.context.ApplicationScoped;
+import net.ihe.gazelle.modelmarshaller.technical.jackson.ObjectMapperBuilder;
+import net.ihe.gazelle.simulation.business.callback.*;
+import net.ihe.gazelle.simulation.business.sequence.*;
+import net.ihe.gazelle.simulation.business.setup.*;
+import net.ihe.gazelle.simulation.jaxrs.api.technical.dto.callback.SimulationReportDTO;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.fnm.simulator.simulations.clientCredentials.HelloGazelleSimulationConfig;
+import org.fnm.simulator.simulations.clientCredentials.HelloGazelleSimulation;
+import org.fnm.simulator.simulations.Status;
+import org.jboss.logging.Logger;
+
+import java.io.IOException;
+import java.net.ConnectException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Instant;
+import java.util.Base64;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+/**
+ * The core simulation service. It provides the service API and manages the individual simulation runs.
+ */
+@ApplicationScoped
+public class HelloGazelleSimulationService implements SimulationService {
+
+    private static final Logger LOG = Logger.getLogger(HelloGazelleSimulationService.class);
+
+    public static final String SEQUENCE_ID = "001";
+
+    @ConfigProperty(name = "version")
+    String version;
+
+    @ConfigProperty(name = "access-token")
+    String accessToken;
+
+    @ConfigProperty(name = "callback.url.base")
+    String callbackURLBase;
+
+    private final HttpClient HTTP_CLIENT = HttpClient.newHttpClient();
+
+    private final SimulationReportValidator validator = new SimulationReportValidator();
+
+    private final Map<String, HelloGazelleSimulation> simulations = new ConcurrentHashMap<>();
+
+    /**
+     *
+     * @param sessionId         unique session identifier, called callback in SimulationAPI.
+     * @param simulationRequest the information required for a single simulation run
+     * @return the SetupOutcome
+     */
+    @Override
+    public SetupOutcome setup(String sessionId, SimulationRequest simulationRequest) throws RuntimeException {
+
+        // check if simulation is already running
+        HelloGazelleSimulation simulation = simulations.get(sessionId);
+        if (simulation != null && simulation.status == Status.RUNNING) {
+            String message = "Simulation with session id " + sessionId + " is already running.";
+            throw new AlreadyRunningException(message);
+        }
+
+        String sequenceId = simulationRequest.getSequenceId();
+
+        if (sequenceId.equals(SEQUENCE_ID)) {
+
+            HelloGazelleSimulationConfig config = new HelloGazelleSimulationConfig(sessionId, simulationRequest);
+
+            simulation = new HelloGazelleSimulation(config);
+            simulations.put(sessionId, simulation);
+
+            // return "ready to go"
+            AdditionalInstructions additionalInstructions = new AdditionalInstructions();
+            additionalInstructions.setSimulationId(sequenceId);
+
+            String message = "Test for the hello gazelle simulator is initialized and can be started! ";
+            additionalInstructions.setInstruction(message);
+            return additionalInstructions; // new SwitchToExecution();
+        }
+
+        throw new UnknownSequenceException();
+
+    }
+
+    /**
+     * @param sessionId the current test session id
+     * @param callback  callback to be notified when the simulation is finished
+     */
+    @Override
+    public void runSimulation(String sessionId, SimulationCallback callback) {
+
+        // get the test data for the current simulation run
+        HelloGazelleSimulation simulation = simulations.get(sessionId);
+        if (simulation != null) {
+
+            LOG.info("Running hello gazelle simulation with session id " + sessionId);
+
+            // run the clientCredentialsSimulation
+            TransactionReport transactionReport = simulation.run();
+
+            // build the report
+            SimulationReport simulationReport = new SimulationReport();
+            simulationReport.setUuid(sessionId);
+            simulationReport.setSequenceId(simulation.getConfig().sequenceId);
+            simulationReport.setServiceName(this.getClass().getSimpleName());
+            simulationReport.setDateTime(Instant.now());
+            simulationReport.setResult(transactionReport.getResult());
+            simulationReport.setTransactionReports(List.of(transactionReport));
+            simulationReport.setServiceVersion(version);
+            simulationReport.setSimulationParameters(simulation.getConfig().simulationParameters);
+
+            LOG.info("Finished hello gazelle simulation with session id " + sessionId);
+
+            notifySimulation(simulationReport);
+            return;
+        }
+
+        // if neither clientCredentialsSimulation nor authorizationCodeSimulation is setup
+        throw new UnknownSequenceException();
+
+    }
+
+    /**
+     * The client shall present the access token in the http Authorization header using the Bearer token scheme:
+     * Authorization: Bearer <access_token>
+     *
+     * @param report the simulation report to be send to the test platform
+     */
+    public void notifySimulation(SimulationReport report) {
+
+        this.validator.validate(report).orThrow(MalformedSimulationReportException::new);
+
+        try {
+
+            JsonMapper mapper = new ObjectMapperBuilder().getBuilder().build();
+            SimulationReportDTO dto = new SimulationReportDTO(report);
+            String result = mapper.writeValueAsString(dto);
+
+            Log.info("Sending report: " + result);
+
+            // put the access token in the Authentication header
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(callbackURLBase + "?session=" + report.getUuid()))
+                    .header("Content-Type", "application/json")
+                    .header("Cache-Control", "no-cache")
+                    .header("Authorization", buildAuthHeader(accessToken))
+                    .POST(HttpRequest.BodyPublishers.ofString(result))
+                    .build();
+
+            HttpResponse<String> response = HTTP_CLIENT.send(request, java.net.http.HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                throw new IllegalStateException(
+                        "Callback failed with HTTP " + response.statusCode() + ": " + response.body()
+                );
+            }
+
+        } catch (ConnectException e) {
+            LOG.error("Failed to connect to callback endpoint", e);
+        } catch (IOException e) {
+            LOG.error("Failed to notify callback endpoint", e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            LOG.error("Callback request was interrupted", e);
+        }
+    }
+
+    /**
+     * Periodically check for finished and orphaned simulations and removes them from the map.
+     */
+    @Scheduled(every = "10s")
+    void run() {
+
+        // accepted age of simulations before being removed
+        long acceptedDelayInSeconds = 10 * 60;
+
+        for (Map.Entry<String, HelloGazelleSimulation> entry : simulations.entrySet()) {
+
+            String sessionId = entry.getKey();
+            HelloGazelleSimulation simulation = entry.getValue();
+
+            // finished simulations
+            if (simulation.status == Status.DONE) {
+                LOG.info("Remove simulation with sessionId = " + sessionId + ", timestamp =" + simulation.getCreatedAt() + " and status = " + simulation.status);
+                simulations.remove(sessionId);
+            }
+
+            // orphaned simulations
+            if (simulation.status == Status.READY &&
+                    simulation.getCreatedAt().plusSeconds(acceptedDelayInSeconds).isBefore(Instant.now())) {
+                LOG.info("Remove orphaned simulation with sessionId = " + sessionId + " and timestamp = " + simulation.getCreatedAt());
+                simulations.remove(sessionId, simulation);
+            }
+        }
+    }
+
+    /**
+     * @return the SimulationSequence definition for the hello gazelle simulation
+     */
+    public SimulationSequence getHelloGazelleSimulationSequence() {
+
+        SimulationSequence sequence = new SimulationSequence();
+        sequence.setId(SEQUENCE_ID);
+
+        SupportedParameter message = new SupportedParameter();
+        message.setName("message").setType(ParameterType.TEXT);
+        message.setDefaultValue("Hello Gazelle!").setRequired(true);
+        message.setDescription("The message to be printed to the console.");
+
+        // add parameter to the sequence
+        sequence.setSupportedParameters(List.of(message));
+
+        sequence.setTransactions(List.of("LOG To console"));
+        sequence.setShortDescription("Sequence for the hello gazelle simulation.");
+        sequence.setDescription("Sequence for the hello gazelle simulation. In this sequence, the SUT specifies a message in the simulation setup and the simulator prints the message to the console.");
+
+        sequence.setStandards(List.of("UTF-8"));
+
+        // add the tested role
+        TestedRole testedRole = new TestedRole();
+        testedRole.setName("Hello Gazelle system under test");
+        testedRole.setType(RoleType.INITIATOR);
+        sequence.setTestedRoles(List.of(testedRole));
+
+        // add the simulationRole
+        SimulatedRole simulationRole = new SimulatedRole();
+        simulationRole.setName("Hello Gazelle simulator");
+        simulationRole.setType(RoleType.RESPONDER);
+        sequence.setSimulatedRoles(List.of(simulationRole));
+
+        LOG.info("Return the hello gazelle simulator sequence: " + sequence);
+        return sequence;
+    }
+
+    /**
+     * Build the Authorization header for the client credential flow.
+     *
+     * @return encoded authorization header with content clientId:clientSecret
+     */
+    private String buildAuthHeader(String accessToken) {
+        String encodedCredentials = Base64.getEncoder().encodeToString(accessToken.getBytes());
+        return "Basic " + encodedCredentials;
+    }
+}

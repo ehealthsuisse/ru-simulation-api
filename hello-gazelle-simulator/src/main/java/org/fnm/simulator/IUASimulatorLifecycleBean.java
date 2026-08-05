@@ -1,0 +1,141 @@
+package org.fnm.simulator;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import io.quarkus.scheduler.Scheduled;
+import io.quarkus.websockets.next.BasicWebSocketConnector;
+import io.quarkus.websockets.next.WebSocketClientConnection;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.event.Observes;
+
+import io.quarkus.runtime.ShutdownEvent;
+import io.quarkus.runtime.StartupEvent;
+import jakarta.inject.Inject;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.jboss.logging.Logger;
+
+import java.util.UUID;
+
+/**
+ * Manage the application lifecycle and schedule service registration via web socket interface to periodically
+ * send the simulator service metadata to the test environment.
+ */
+@ApplicationScoped
+public class IUASimulatorLifecycleBean {
+
+    private static final Logger LOG = Logger.getLogger(IUASimulatorLifecycleBean.class);
+
+    @ConfigProperty(name = "websocket.url.base")
+    String wsUrlBase;
+
+    @ConfigProperty(name = "version")
+    String version;
+
+    @ConfigProperty(name = "instanceId")
+    String instanceId;
+
+    @ConfigProperty(name = "replicaId")
+    String replicaId = UUID.randomUUID().toString();
+
+    @ConfigProperty(name = "simulationServiceUrl")
+    String simulationServiceUrl;
+
+    WebSocketClientConnection connection;
+
+    @Inject
+    BasicWebSocketConnector connector;
+
+    /**
+     *
+     * @param ev the start event
+     * @throws JsonProcessingException never happens
+     */
+    void onStart(@Observes StartupEvent ev) throws JsonProcessingException {
+        LOG.info("The application is starting...");
+        openConnection();
+    }
+
+    /**
+     * Close the connection to the simulation service
+     * @param ev the stop event
+     */
+    void onStop(@Observes ShutdownEvent ev) {
+        LOG.info("The application is stopping...");
+        if (connection != null) {
+            connection.closeAndAwait();
+        }
+    }
+
+    /**
+     * Register the simulation service periodically
+     *
+     * @throws JsonProcessingException never happens
+     */
+    @Scheduled(every = "30s")
+    void run() throws JsonProcessingException {
+
+        if (connection == null || !connection.isOpen()) {
+            openConnection();
+        }
+
+        if (connection != null && connection.isOpen()) {
+            connection.sendTextAndAwait(getMetadata());
+        } else {
+            LOG.error("Unable to send metadata to the service registry");
+        }
+
+    }
+
+    /**
+     * @return the metadata for the simulation service
+     * @throws JsonProcessingException never happens
+     */
+    private String getMetadata() throws JsonProcessingException {
+
+        ObjectMapper mapper = new ObjectMapper();
+
+        ObjectNode registration = mapper.createObjectNode();
+        registration.put("name", "Hello Gazelle Simulator");
+        registration.put("version", version);
+        registration.put("instanceId", instanceId);
+        registration.put("replicaId", replicaId);
+        registration.put("description", "This simulator is for educational purposes only. It prints the a message send by the SUT to the console.");
+
+        ObjectNode providedInterface = mapper.createObjectNode();
+        providedInterface.put("interfaceName", "Simulation Service API");
+        providedInterface.put("interfaceVersion", version);
+
+        ObjectNode binding = mapper.createObjectNode();
+        binding.put("@type", "REST");
+        binding.put("serviceUrl", simulationServiceUrl);
+        providedInterface.set("binding", binding);
+
+        ArrayNode providedInterfaces = mapper.createArrayNode();
+        providedInterfaces.add(providedInterface);
+
+        registration.set("providedInterfaces", providedInterfaces);
+
+        return mapper.writerWithDefaultPrettyPrinter().writeValueAsString(registration);
+    }
+
+    /**
+     * Open a connection to test environments service registry.
+     */
+    private void openConnection() {
+
+        final String url = wsUrlBase + "/" + instanceId + "/" + replicaId;
+
+        try {
+            connection = connector
+                    .baseUri(url)
+                    .executionModel(BasicWebSocketConnector.ExecutionModel.NON_BLOCKING)
+                    .connectAndAwait();
+        } catch (Exception e) {
+            connection = null;
+            LOG.error("Unable to connect to the service registry at " + wsUrlBase);
+        }
+    }
+
+}

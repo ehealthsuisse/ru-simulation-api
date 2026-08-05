@@ -1,0 +1,30 @@
+meta {
+  name: 2.1 Simulation Setup
+  type: http
+  seq: 2
+}
+
+post {
+  url: http://localhost:8080/simulation/v1/simulations?callback=f2ecee74-71c2-440f-b13f-3edf41fa18b1
+  body: json
+  auth: none
+}
+
+params:query {
+  callback: f2ecee74-71c2-440f-b13f-3edf41fa18b1
+}
+
+body:json {
+  {
+    "sequenceId": "001",
+    "sequenceIdDefined": true,
+    "simulationParameters": [
+      {
+        "name": "message",
+        "type": "TEXT",
+        "value": "Hello gazelle simulator!"
+      }
+    ],
+    "timeoutSeconds": 10
+  }
+}

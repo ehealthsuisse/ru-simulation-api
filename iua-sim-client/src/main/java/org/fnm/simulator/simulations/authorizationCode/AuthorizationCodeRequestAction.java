@@ -1,0 +1,200 @@
+package org.fnm.simulator.simulations.authorizationCode;
+
+import net.ihe.gazelle.simulation.business.callback.Result;
+import net.ihe.gazelle.simulation.business.callback.TransactionReport;
+import org.jboss.logging.Logger;
+
+import java.io.IOException;
+import java.net.URI;
+import java.net.URLDecoder;
+import java.net.URLEncoder;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.util.Base64;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+public class AuthorizationCodeRequestAction {
+
+    private static final Logger LOG = Logger.getLogger(AuthorizationCodeRequestAction.class);
+
+    private final AuthorizationCodeConfig config;
+    private final HttpClient httpClient = HttpClient.newHttpClient();
+
+    public static final String REDIRECT_URI = "http://localhost:9000/callback";
+
+    public AuthorizationCodeRequestAction(AuthorizationCodeConfig config) {
+        this.config = config;
+    }
+
+    /**
+     * Run the simulation.
+     * @return a TransactionReport object indicating the result of the test.
+     */
+    public TransactionReport run() {
+
+        StringBuilder queryString = new StringBuilder();
+        queryString.append("response_type=code");
+        queryString.append("&client_id=").append(encode(config.clientId));
+        queryString.append("&state=123456789");
+        queryString.append("&redirect_uri=").append(encode(REDIRECT_URI));
+        queryString.append("&scope=").append(encode(config.scope));
+
+        if (config.personId != null && !config.personId.isBlank())
+            queryString.append("&person_id=").append(encode(config.personId));
+        if (config.principal != null && !config.principal.isBlank())
+            queryString.append("&principal=").append(encode(config.principal));
+        if (config.principalId != null && !config.principalId.isBlank())
+            queryString.append("&principal_id=").append(encode(config.principalId));
+        if (config.group != null && !config.group.isBlank())
+            queryString.append("&group=").append(encode(config.group));
+        if (config.groupId != null && !config.groupId.isBlank())
+            queryString.append("&group_id=").append(encode(config.groupId));
+        if (config.resource != null && !config.resource.isBlank())
+            queryString.append("&resource=").append(encode(config.resource));
+        if (config.requestedTokenType != null && !config.requestedTokenType.isBlank())
+            queryString.append("&requested_token_type=").append(config.requestedTokenType);
+
+        URI uri = URI.create(config.codeEndpointUrl + "?" + queryString.toString());
+
+        // put client_id and client_secret in the Authentication header
+        String authHeader = buildAuthHeader(config.clientId, config.clientSecret);
+
+        HttpRequest httpRequest = HttpRequest.newBuilder()
+                .uri(uri)
+                .header("Cache-Control", "no-cache")
+                .header("Authorization", authHeader)
+                .timeout(Duration.ofSeconds(config.timeoutInSeconds))
+                .GET()
+                .build();
+
+        HttpResponse<String> response;
+
+        try {
+            response = httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString());
+        } catch (IOException e) {
+            String message = "IO error: Could not connect to authZ server at " + config.codeEndpointUrl;
+            LOG.error(message, e);
+            return getFailedTransactionReport(message);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            String message = "IO error: Request interrupted while connecting to authZ server at " + config.codeEndpointUrl;
+            LOG.error(message, e);
+            return getFailedTransactionReport(message);
+        }
+
+        // check the status code of the response
+        int statusCode = response.statusCode();
+        List<Integer> redirectCodes = List.of(301, 302, 303, 307, 308);
+        String reasonPhrase = redirectCodes.contains(statusCode) ? "OK" : "HTTP " + statusCode;
+
+        LOG.info("Status: " + statusCode + " " + reasonPhrase);
+
+        // return failed if the status code is not a redirect code
+        if (!redirectCodes.contains(statusCode)) {
+            String message = "Error: AuthZ Server returned " + reasonPhrase;
+            LOG.error(message);
+            return getFailedTransactionReport(message);
+        }
+
+        // else, get the location from header of the redirect message which contains the code
+        String location = response.headers()
+                .firstValue("location")
+                .orElse(null);
+
+        if (location == null || location.isBlank()) {
+            String message = "Error: Redirect response did not contain a Location header";
+            LOG.error(message);
+            return getFailedTransactionReport(message);
+        }
+
+        URI locationUri = URI.create(location);
+
+        Map<String, String> queryParameters = locationUri.getQuery()
+                .lines()
+                .flatMap(query -> Stream.of(query.split("&")))
+                .map(parameter -> parameter.split("=", 2))
+                .collect(Collectors.toMap(
+                        parameter -> URLDecoder.decode(parameter[0], StandardCharsets.UTF_8),
+                        parameter -> parameter.length > 1 ? URLDecoder.decode(parameter[1], StandardCharsets.UTF_8) : ""
+                ));
+
+        // select code and state
+        String authorizationCode = queryParameters.get("code");
+        String state = queryParameters.get("state");
+
+        if (authorizationCode == null || authorizationCode.isBlank()) {
+            String message = "Error: Redirect Location did not contain an authorization code";
+            LOG.error(message);
+            return getFailedTransactionReport(message);
+        }
+
+        if (state == null || state.isBlank()) {
+            String message = "Error: Redirect Location did not contain a state";
+            LOG.error(message);
+            return getFailedTransactionReport(message);
+        }
+
+        LOG.info("Authorization code received: " + authorizationCode);
+        LOG.info("State received: " + state);
+
+        // save the code and state for later use
+        config.authorizationCode = authorizationCode;
+        config.state = state;
+
+        // build and return the transaction report
+        TransactionReport report = new TransactionReport();
+        report.setResult(Result.PASSED);
+        report.setStandards(List.of("CH:ITI-71", "HTTP/1.1"));
+        report.setInitiator(config.initiator);
+        report.setResponder(config.responder);
+        report.setTransaction("CH:IUA Authorization Code Flow [ITI-71]");
+        report.setStandards(List.of("CH:IUA"));
+        report.setNote("Received authorization code:" + authorizationCode + "and state:" + state);
+
+        return report;
+    }
+
+    /**
+     * URL encode the string.
+     * @param s the string to encode
+     * @return the encoded string
+     */
+    private String encode(String s) {
+        return URLEncoder.encode(s, StandardCharsets.UTF_8);
+    }
+
+    /**
+     * Build the Authorization header for the client credential flow.
+     * @param clientId the client id
+     * @param clientSecret the client secret
+     * @return encoded authorization header with content clientId:clientSecret
+     */
+    private String buildAuthHeader(String clientId, String clientSecret) {
+        String credentials = clientId + ":" + clientSecret;
+        String encodedCredentials = Base64.getEncoder().encodeToString(credentials.getBytes());
+        return "Basic " + encodedCredentials;
+    }
+
+    /**
+     * @param message the error message
+     * @return a transaction report indicating a failed test
+     */
+    private TransactionReport getFailedTransactionReport(String message) {
+        TransactionReport report = new TransactionReport();
+        report.setResult(Result.FAILED);
+        report.setInitiator(config.initiator);
+        report.setResponder(config.responder);
+        report.setStandards(List.of("CH:ITI-71", "HTTP/1.1"));
+        report.setTransaction("CH:IUA Authorization Code Flow [ITI-71]");
+        report.setStandards(List.of("CH:IUA"));
+        report.setNote(message);
+        return report;
+    }
+
+}
