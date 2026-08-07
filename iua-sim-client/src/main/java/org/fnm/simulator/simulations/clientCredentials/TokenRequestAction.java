@@ -168,6 +168,9 @@ public class TokenRequestAction {
             return getFailedTransactionReport(message);
         }
 
+        LOG.info("token response body is "+ responseBody);
+        LOG.info("access token as string is "+accessTokenAsString);
+
         String algName = jwtTokenHelper.getAlgName(accessTokenAsString);
         LOG.info("Algorithm name in responseBody is : " + algName);
 

@@ -5,6 +5,7 @@ import com.auth0.jwt.algorithms.Algorithm;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.nimbusds.jose.JOSEException;
+import com.nimbusds.jose.util.Base64URL;
 import jakarta.enterprise.context.ApplicationScoped;
 import org.fnm.helper.AlgorithmHelper;
 import org.fnm.helper.GrantType;
@@ -17,10 +18,7 @@ import org.jboss.logging.Logger;
 import java.io.IOException;
 import java.text.ParseException;
 import java.time.Instant;
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 @ApplicationScoped
@@ -30,11 +28,35 @@ public class AuthorizationService {
     private final Map<String, AuthorizationRequestParameter> authorizationRequests = new ConcurrentHashMap<>();
 
     /**
+     *
+     * {
+     *   "access_token": "eyJraW...", // to base64 encoded Access Token
+     *   "scope": "CUSTOM", // the scope from the request
+     *   "token_type": "Bearer", // fixed
+     *   "expires_in": 299 // lifetime in seconds
+     * }
+     *
+     * @param tokenRequestParameter
+     * @return
+     */
+    public String buildResponse(TokenRequestParameter tokenRequestParameter) throws ParseException, IOException, JOSEException {
+
+        JsonObject response = new JsonObject();
+        response.addProperty("token_type", "Bearer");
+        response.addProperty("expires_in", "300");
+        response.addProperty("scope", tokenRequestParameter.scope);
+        response.addProperty("access_token", buildAccessToken(tokenRequestParameter));
+
+        return response.toString();
+    }
+
+
+    /**
      * @return the JWT as string
      */
-    public String buildJWT(TokenRequestParameter tokenRequestParameter) throws ParseException, IOException, JOSEException {
+    public String buildAccessToken(TokenRequestParameter tokenRequestParameter) throws ParseException, IOException, JOSEException {
         Algorithm algorithm = AlgorithmHelper.loadRSAPrivateKey();
-        String payload = buildJWTPayload(tokenRequestParameter);
+        String payload = buildAccessTokenPayload(tokenRequestParameter);
         return JWT.create().withPayload(payload).sign(algorithm);
     }
 
@@ -43,7 +65,7 @@ public class AuthorizationService {
      *
      * @return token payload as JSON string
      */
-    private String buildJWTPayload(TokenRequestParameter tokenRequestParameter) {
+    private String buildAccessTokenPayload(TokenRequestParameter tokenRequestParameter) {
 
         // check the grant type
         if (tokenRequestParameter.grantType.equals(GrantType.clientCredentials)) {

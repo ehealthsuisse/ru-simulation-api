@@ -59,7 +59,7 @@ public class TokenRequestResource {
                 GrantType.authorizationCode.equals(tokenRequestParameter.grantType)) {
 
             // build JWT depending on the grant type
-            String jwt = authorizationService.buildJWT(tokenRequestParameter);
+            String jwt = authorizationService.buildResponse(tokenRequestParameter);
             return Response.ok(jwt).build();
 
         } else {
