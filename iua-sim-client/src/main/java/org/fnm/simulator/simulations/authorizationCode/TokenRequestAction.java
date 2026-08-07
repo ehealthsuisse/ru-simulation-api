@@ -7,6 +7,9 @@ import com.auth0.jwt.exceptions.SignatureVerificationException;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import com.authlete.hms.SigningInfo;
 import com.authlete.hms.fapi.FapiResourceRequestSigner;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.jwk.JWK;
 import net.ihe.gazelle.simulation.business.callback.Message;
@@ -172,8 +175,20 @@ public class TokenRequestAction {
             return getFailedTransactionReport(message);
         }
 
+        String accessTokenAsString;
+
         String responseBody = response.body();
-        String algName = jwtTokenHelper.getAlgName(responseBody);
+        ObjectMapper objectMapper = new ObjectMapper();
+        try {
+            JsonNode node = objectMapper.readTree(responseBody);
+            accessTokenAsString = node.get("access_token").asText();
+        } catch (JsonProcessingException e) {
+            String message = "Unable to parse the response body to access token";
+            LOG.error(message);
+            return getFailedTransactionReport(message);
+        }
+
+        String algName = jwtTokenHelper.getAlgName(accessTokenAsString);
         LOG.info("Algorithm name in responseBody is : " + algName);
 
         try {
@@ -197,10 +212,7 @@ public class TokenRequestAction {
                     .acceptExpiresAt(5)
                     .build();
 
-            DecodedJWT jwt = verifier.verify(responseBody);
-
-            LOG.info("Request body is " + requestBody);
-            LOG.info("Response body is " + responseBody);
+            DecodedJWT jwt = verifier.verify(accessTokenAsString);
 
             String header = new String(Base64.getUrlDecoder().decode(jwt.getHeader()));
             LOG.info("Header is " + header);
