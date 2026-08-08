@@ -5,7 +5,6 @@ import com.auth0.jwt.algorithms.Algorithm;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.nimbusds.jose.JOSEException;
-import com.nimbusds.jose.util.Base64URL;
 import jakarta.enterprise.context.ApplicationScoped;
 import org.fnm.helper.AlgorithmHelper;
 import org.fnm.helper.GrantType;
@@ -27,44 +26,23 @@ public class AuthorizationService {
     private static final Logger LOG = Logger.getLogger(AuthorizationService.class);
     private final Map<String, AuthorizationRequestParameter> authorizationRequests = new ConcurrentHashMap<>();
 
-    /**
-     *
-     * {
-     *   "access_token": "eyJraW...", // to base64 encoded Access Token
-     *   "scope": "CUSTOM", // the scope from the request
-     *   "token_type": "Bearer", // fixed
-     *   "expires_in": 299 // lifetime in seconds
-     * }
-     *
-     * @param tokenRequestParameter
-     * @return
-     */
-    public String buildResponse(TokenRequestParameter tokenRequestParameter) throws ParseException, IOException, JOSEException {
 
+    public String buildResponse(TokenRequestParameter tokenRequestParameter) throws ParseException, IOException, JOSEException {
         JsonObject response = new JsonObject();
         response.addProperty("token_type", "Bearer");
         response.addProperty("expires_in", "300");
         response.addProperty("scope", tokenRequestParameter.scope);
         response.addProperty("access_token", buildAccessToken(tokenRequestParameter));
-
         return response.toString();
     }
 
-
-    /**
-     * @return the JWT as string
-     */
     public String buildAccessToken(TokenRequestParameter tokenRequestParameter) throws ParseException, IOException, JOSEException {
         Algorithm algorithm = AlgorithmHelper.loadRSAPrivateKey();
         String payload = buildAccessTokenPayload(tokenRequestParameter);
         return JWT.create().withPayload(payload).sign(algorithm);
     }
 
-    /**
-     * TODO: parse the scope and extract the purpose of use
-     *
-     * @return token payload as JSON string
-     */
+    // TODO: parse the scope and extract the purpose of use
     private String buildAccessTokenPayload(TokenRequestParameter tokenRequestParameter) {
 
         // check the grant type
@@ -157,11 +135,7 @@ public class AuthorizationService {
     }
 
 
-    /**
-     * TODO get the user id and name from the IdP token send with the token request
-     *
-     * Note: if person id is null, the token is a basic access token
-     */
+    // TODO get the user id and name from the IdP token send with the token request
     private JsonObject buildExtensionsForRole(String role, AuthorizationRequestParameter authorizationRequestParameter) {
 
         JsonObject extensions = new JsonObject();
@@ -299,26 +273,9 @@ public class AuthorizationService {
         return extensions;
     }
 
-    /**
-     * Register the authorization request from the authorization code flow
-     *
-     * @param code             the authorization code
-     * @param requestParameter the authorization request parameter
-     */
     public void registerAuthorizationRequest(String code, AuthorizationRequestParameter requestParameter) {
         authorizationRequests.put(code, requestParameter);
     }
-
-    /**
-     * Find the authorization request by the authorization code
-     *
-     * @param code the authorization code returned in the authorization request
-     * @return AuthorizationRequestParameter
-     */
-    public AuthorizationRequestParameter findAuthorizationRequest(String code) {
-        return authorizationRequests.get(code);
-    }
-
 
     public Map<String, String> parseScope(String scopeString) {
 

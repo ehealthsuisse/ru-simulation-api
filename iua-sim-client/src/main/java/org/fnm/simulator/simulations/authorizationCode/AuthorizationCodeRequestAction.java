@@ -14,6 +14,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Base64;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -114,28 +115,34 @@ public class AuthorizationCodeRequestAction {
         }
 
         URI locationUri = URI.create(location);
-
-        Map<String, String> queryParameters = locationUri.getQuery()
-                .lines()
-                .flatMap(query -> Stream.of(query.split("&")))
-                .map(parameter -> parameter.split("=", 2))
-                .collect(Collectors.toMap(
-                        parameter -> URLDecoder.decode(parameter[0], StandardCharsets.UTF_8),
-                        parameter -> parameter.length > 1 ? URLDecoder.decode(parameter[1], StandardCharsets.UTF_8) : ""
-                ));
+        Map<String, String> queryParameters;
+        try {
+            queryParameters = locationUri.getQuery()
+                    .lines()
+                    .flatMap(query -> Stream.of(query.split("&")))
+                    .map(parameter -> parameter.split("=", 2))
+                    .collect(Collectors.toMap(
+                            parameter -> URLDecoder.decode(parameter[0], StandardCharsets.UTF_8),
+                            parameter -> parameter.length > 1 ? URLDecoder.decode(parameter[1], StandardCharsets.UTF_8) : ""
+                    ));
+        } catch (Exception e){
+            String message = "Error while reading the query parameter of the redirect URL "+location;
+            LOG.info(message);
+            return getFailedTransactionReport(message);
+        }
 
         // select code and state
         String authorizationCode = queryParameters.get("code");
         String state = queryParameters.get("state");
 
         if (authorizationCode == null || authorizationCode.isBlank()) {
-            String message = "Error: Redirect Location did not contain an authorization code";
+            String message = "Error: Redirect location did not contain an authorization code";
             LOG.error(message);
             return getFailedTransactionReport(message);
         }
 
         if (state == null || state.isBlank()) {
-            String message = "Error: Redirect Location did not contain a state";
+            String message = "Error: Redirect location did not contain a state";
             LOG.error(message);
             return getFailedTransactionReport(message);
         }
