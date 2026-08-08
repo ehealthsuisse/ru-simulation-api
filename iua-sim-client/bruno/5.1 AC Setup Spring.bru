@@ -1,7 +1,7 @@
 meta {
-  name: 3.1 AC Simulation Setup REP
+  name: 5.1 AC Setup Spring
   type: http
-  seq: 7
+  seq: 17
 }
 
 post {
@@ -22,27 +22,27 @@ body:json {
       {
         "name": "code_endpoint_url",
         "type": "TEXT",
-        "value": "http://localhost:9000/authorize"
+        "value": "http://localhost:9000/oauth2/authorize"
       },
       {
         "name": "token_endpoint_url",
         "type": "TEXT",
-        "value": "http://localhost:9000/token"
+        "value": "http://localhost:9000/ouath2/token"
       },
       {
         "name": "client_id",
         "type": "TEXT",
-        "value": "the-client-id"
+        "value": "client-id"
       },
       {
         "name": "client_secret",
         "type": "TEXT",
-        "value": "the-client-secret"
+        "value": "client-secret"
       },
       {
         "name": "scope",
         "type": "TEXT",
-        "value": "purpose_of_use=urn:oid:2.16.756.5.30.1.127.3.10.5|NORMAL subject_role=urn:oid:2.16.756.5.30.1.127.3.10.6|REP"
+        "value": "purpose_of_use=urn:oid:2.16.756.5.30.1.127.3.10.5|NORMAL subject_role=urn:oid:2.16.756.5.30.1.127.3.10.6|DADM"
       },
       {
         "name": "person_id",
