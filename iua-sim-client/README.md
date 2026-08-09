@@ -1,7 +1,12 @@
 # IUA Simulation Client
 
-Simulates the CHI:IUA Authorization client actor implementing a Get Access Token [ITI-71] transaction for the client credential
-and authorization code flow as specified in the [Swiss extension of the IUA profile](http://build.fhir.org/ig/ehealthsuisse/ch-epr-fhir/).
+Simulates the CHI:IUA Authorization client actor implementing a Get Access Token [ITI-71] transaction for the client 
+credential and authorization code flow as specified in the [Swiss extension of the IUA profile](http://build.fhir.org/ig/ehealthsuisse/ch-epr-fhir/).
+
+Note:
+To run the simulation for the authorization code flow, the system under test must be configured to use the 
+basic http authentication scheme. This simulation client is headless and cannot start a browser to 
+authenticate the user in the authorization code flow.  
 
 ## IdP assertion
 
@@ -30,7 +35,7 @@ The IdP assertion may look like:
 }
 ```
 
-The client simulator provides an inspection endpoint for the OIDC token response and the id_token. Please check the
+The client simulator provides an inspection endpoint for the mock OpenId Connect token id_token used. Please check the
 [bruno 4.0.0](https://www.usebruno.com/downloads) collection of http transactions provided with this project. 
 See https://www.jwt.io for decoding the id_token. The key used to sign the id_token is provided in JWK format in the simulation 
 sequence response of the simulator.
@@ -47,7 +52,6 @@ of the Gazelle Test Environment and the IUA Authorization server simulator [iua-
 
 The project also contains a [bruno 4.0.0](https://www.usebruno.com/downloads) collection of http transactions to 
 simulate the api calls for test setup and resume and the simulation sequences.
-
 
 ## Running the application in dev mode
 You can run your application in dev mode that enables live coding using:

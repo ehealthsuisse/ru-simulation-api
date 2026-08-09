@@ -14,7 +14,6 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Base64;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -60,10 +59,10 @@ public class AuthorizationCodeRequestAction {
         if (config.requestedTokenType != null && !config.requestedTokenType.isBlank())
             queryString.append("&requested_token_type=").append(config.requestedTokenType);
 
-        URI uri = URI.create(config.codeEndpointUrl + "?" + queryString.toString());
+        URI uri = URI.create(config.codeEndpointUrl + "?" + queryString);
 
-        // put client_id and client_secret in the Authentication header
-        String authHeader = buildAuthHeader(config.clientId, config.clientSecret);
+        // add the http basic auth header for user authentication
+        String authHeader = buildAuthHeader(config.basicAuthUser, config.basicAuthPassword);
 
         HttpRequest httpRequest = HttpRequest.newBuilder()
                 .uri(uri)

@@ -22,36 +22,45 @@ public class AuthorizationCodeConfig {
     public final Role initiator;
     public final Role responder;
 
+    public long timeoutInSeconds;
+
     // parameter read from setup indicating the current test session
     public String sessionId;
 
     // the identity of the sequence supported by the simulation
     public String sequenceId;
 
-    public long timeoutInSeconds;
-
     // parameters read from setup
     public List<Parameter> simulationParameters;
 
-    // parameter read from setup
+    // URL of the code endpoint of the system under test.
     public String codeEndpointUrl;
+
+    // user credentials for http basic auth scheme used to authenticate the user
+    public String basicAuthUser;
+    public String basicAuthPassword;
+
+    // URL of the token endpoint of the system under test.
     public String tokenEndpointUrl;
+
+    // The public key for signature validation of the JWT is not set
+    public String jwtPublicKey;
+
+    // Oauth parameter
     public String clientId;
     public String clientSecret;
     public String state;
     public String redirectUri; // configured in application properties
     public String scope;
+
+    // IUA parameter
     public String personId;
     public String principal;
     public String principalId;
     public String group;
     public String groupId;
     public String resource;
-    // public String codeChallenge; // currently not used
-    // public String codeChallengeMethod; // currently not used
     public String requestedTokenType;
-
-    public String jwtPublicKey;
 
     // result from the authorization code request
     public String authorizationCode;
@@ -115,6 +124,15 @@ public class AuthorizationCodeConfig {
         if (codeEndpointUrl == null || codeEndpointUrl.isBlank())
             builder.append("Authorization code endpoint URL is not set.");
 
+        if (basicAuthUser == null || basicAuthUser.isBlank())
+            builder.append("The username for http basic authentication is not set.");
+
+        if (basicAuthPassword == null || basicAuthPassword.isBlank())
+            builder.append("The users passphrase for http basic authentication is not set.");
+
+        if (codeEndpointUrl == null || codeEndpointUrl.isBlank())
+            builder.append("Authorization code endpoint URL is not set.");
+
         if (tokenEndpointUrl == null || tokenEndpointUrl.isBlank())
             builder.append("Token endpoint URL is not set.");
 
@@ -128,7 +146,7 @@ public class AuthorizationCodeConfig {
             builder.append("Scope is not set.");
 
         if (jwtPublicKey == null || jwtPublicKey.isBlank())
-            builder.append("JWT public key is not set.");
+            builder.append("The public key for signature validation of the JWT is not set.");
 
         // eval the scope
         Map<String, String> scopeMap = parseScope(scope);

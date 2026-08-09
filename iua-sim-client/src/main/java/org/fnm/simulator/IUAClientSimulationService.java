@@ -412,6 +412,16 @@ public class IUAClientSimulationService implements SimulationService {
         codeEndpoint.setDefaultValue("http://localhost:9000/authorize").setRequired(true);
         codeEndpoint.setDescription("The URL of the code endpoint of the system under test.");
 
+        SupportedParameter basicAuthUser = new SupportedParameter();
+        basicAuthUser.setName("basic_auth_user").setType(ParameterType.TEXT);
+        basicAuthUser.setDefaultValue("basic-auth-user").setRequired(true);
+        basicAuthUser.setDescription("The username of the user for the http basic authentication credentials.");
+
+        SupportedParameter basicAuthPassword = new SupportedParameter();
+        basicAuthPassword.setName("basic_auth_password").setType(ParameterType.TEXT);
+        basicAuthPassword.setDefaultValue("basic-auth-password").setRequired(true);
+        basicAuthPassword.setDescription("The users passphrase for the http basic authentication credentials.");
+
         SupportedParameter tokenEndpoint = new SupportedParameter();
         tokenEndpoint.setName("token_endpoint_url").setType(ParameterType.TEXT);
         tokenEndpoint.setDefaultValue("http://localhost:9000/token").setRequired(true);
@@ -475,6 +485,8 @@ public class IUAClientSimulationService implements SimulationService {
         // add supported parameter to be set by the SUT
         sequence.setSupportedParameters(List.of(
                 codeEndpoint,
+                basicAuthUser,
+                basicAuthPassword,
                 tokenEndpoint,
                 clientId,
                 clientSecret,

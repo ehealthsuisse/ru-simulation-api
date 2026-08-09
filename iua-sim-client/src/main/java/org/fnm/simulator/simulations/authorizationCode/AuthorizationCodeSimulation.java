@@ -5,14 +5,11 @@ import net.ihe.gazelle.simulation.business.callback.TransactionReport;
 import org.fnm.simulator.simulations.Status;
 import org.jboss.logging.Logger;
 
-import java.time.Instant;
-
 public class AuthorizationCodeSimulation {
 
     private static final Logger LOG = Logger.getLogger(AuthorizationCodeSimulation.class);
 
     public Status status = Status.READY;
-    public final Instant createdAt = Instant.now();
 
     private final AuthorizationCodeConfig config;
     private final AuthorizationCodeRequestAction authorizationCodeRequestAction;
