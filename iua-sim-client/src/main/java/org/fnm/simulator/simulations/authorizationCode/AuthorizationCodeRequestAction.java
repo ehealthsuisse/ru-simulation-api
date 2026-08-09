@@ -27,8 +27,6 @@ public class AuthorizationCodeRequestAction {
     private final AuthorizationCodeConfig config;
     private final HttpClient httpClient = HttpClient.newHttpClient();
 
-    public static final String REDIRECT_URI = "http://localhost:9000/callback";
-
     public AuthorizationCodeRequestAction(AuthorizationCodeConfig config) {
         this.config = config;
     }
@@ -42,8 +40,9 @@ public class AuthorizationCodeRequestAction {
         StringBuilder queryString = new StringBuilder();
         queryString.append("response_type=code");
         queryString.append("&client_id=").append(encode(config.clientId));
+        // queryString.append("&client_secret=").append(config.clientSecret); // TODO do we need the secret?
         queryString.append("&state=123456789");
-        queryString.append("&redirect_uri=").append(encode(REDIRECT_URI));
+        queryString.append("&redirect_uri=").append(encode(config.redirectUri));
         queryString.append("&scope=").append(encode(config.scope));
 
         if (config.personId != null && !config.personId.isBlank())

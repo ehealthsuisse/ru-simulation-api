@@ -48,6 +48,9 @@ public class IUAClientSimulationService implements SimulationService {
     @ConfigProperty(name = "version")
     String version;
 
+    @ConfigProperty(name = "redirectUri")
+    String redirectUri;
+
     @ConfigProperty(name = "access-token")
     String accessToken;
 
@@ -62,7 +65,7 @@ public class IUAClientSimulationService implements SimulationService {
 
     /**
      *
-     * @param sessionId         unique session identifier, called callback in SimulationAPI.
+     * @param sessionId unique session identifier, called callback in SimulationAPI.
      * @param simulationRequest the information required for a single simulation run
      * @return the SetupOutcome
      */
@@ -113,6 +116,7 @@ public class IUAClientSimulationService implements SimulationService {
         if (sequenceId.equals(AUTHORIZATION_CODE_SEQUENCE_ID)) {
 
             AuthorizationCodeConfig config = new AuthorizationCodeConfig(sessionId, simulationRequest);
+            config.redirectUri = redirectUri;
             AdditionalInstructions validation = config.validate();
 
             if (validation != null) return validation;

@@ -39,7 +39,7 @@ public class AuthorizationCodeConfig {
     public String clientId;
     public String clientSecret;
     public String state;
-    // public String redirectUri; // fixed for the simulator
+    public String redirectUri; // configured in application properties
     public String scope;
     public String personId;
     public String principal;
