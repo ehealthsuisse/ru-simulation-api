@@ -97,6 +97,8 @@ public class AuthorizationCodeConfig {
             if ((type != null) && type.equals(ParameterType.TEXT)){
                 switch (name) {
                     case "code_endpoint_url" -> codeEndpointUrl = parameter.getValue();
+                    case "basic_auth_user" -> basicAuthUser = parameter.getValue();
+                    case "basic_auth_password" -> basicAuthPassword = parameter.getValue();
                     case "token_endpoint_url" -> tokenEndpointUrl = parameter.getValue();
                     case "client_id" -> clientId = parameter.getValue();
                     case "client_secret" -> clientSecret = parameter.getValue();
