@@ -234,7 +234,7 @@ public class HelloGazelleSimulationService implements SimulationService {
         sequence.setId(SEQUENCE_ID);
 
         SupportedParameter message = new SupportedParameter();
-        message.setName("message").setType(ParameterType.TEXT);
+        message.setName("message").setGroupName("Sequence settings").setType(ParameterType.TEXT);
         message.setDefaultValue("Hello Gazelle!").setRequired(true);
         message.setDescription("The message to be printed to the console.");
 
