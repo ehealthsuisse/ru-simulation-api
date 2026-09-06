@@ -5,13 +5,13 @@ meta {
 }
 
 post {
-  url: http://localhost:8080/simulation/v1/simulations?callback=f2ecee74-71c2-440f-b13f-3edf41fa18b1
+  url: http://localhost:8080/simulation/v1/simulations?callback=http://localhost:9090/simulation/v1/report?session=cc-session
   body: json
   auth: none
 }
 
 params:query {
-  callback: f2ecee74-71c2-440f-b13f-3edf41fa18b1
+  callback: http://localhost:9090/simulation/v1/report?session=cc-session
 }
 
 body:json {
@@ -27,4 +27,8 @@ body:json {
     ],
     "timeoutSeconds": 10
   }
+}
+
+vars:post-response {
+  simulationId: res.body.simulationId
 }

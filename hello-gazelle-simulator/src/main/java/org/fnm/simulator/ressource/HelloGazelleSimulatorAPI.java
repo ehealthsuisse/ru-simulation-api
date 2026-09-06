@@ -10,6 +10,9 @@ import net.ihe.gazelle.simulation.business.sequence.*;
 import net.ihe.gazelle.simulation.business.setup.AdditionalInstructions;
 import net.ihe.gazelle.simulation.business.setup.SetupOutcome;
 import net.ihe.gazelle.simulation.business.setup.SwitchToExecution;
+import net.ihe.gazelle.simulation.business.setup.AlreadyRunningException;
+import net.ihe.gazelle.simulation.business.setup.UnknownSimulationException;
+import net.ihe.gazelle.simulation.jaxrs.api.technical.dto.sequence.ChecksumDTO;
 import net.ihe.gazelle.simulation.jaxrs.api.technical.dto.sequence.SimulationSequenceDTO;
 import net.ihe.gazelle.simulation.jaxrs.api.technical.dto.setup.AdditionalInstructionsDTO;
 import net.ihe.gazelle.simulation.jaxrs.api.technical.dto.setup.SimulationRequestDTO;
@@ -18,6 +21,7 @@ import net.ihe.gazelle.simulation.jaxrs.api.technical.ws.SimulationAPI;
 import org.fnm.simulator.HelloGazelleSimulationService;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.zip.CRC32;
 
 
@@ -52,7 +56,9 @@ public class HelloGazelleSimulatorAPI implements SimulationAPI {
     public Response getSimulationSequencesChecksum() {
         CRC32 crc = new CRC32();
         crc.update(simulationService.getHelloGazelleSimulationSequence().hashCode());
-        Response.ResponseBuilder builder = Response.ok(String.valueOf(crc.getValue()));
+        // The API returns a Checksum object, hexadecimal in 08 format -- not a bare number.
+        ChecksumDTO checksum = new ChecksumDTO(String.format("0x%08X", crc.getValue()));
+        Response.ResponseBuilder builder = Response.ok(checksum);
         builder.header("Content-Type", "application/json");
         return builder.build();
     }
@@ -67,7 +73,12 @@ public class HelloGazelleSimulatorAPI implements SimulationAPI {
     @Override
     public Response setup(String callback, SimulationRequestDTO simulationRequest) throws RuntimeException {
 
-        SetupOutcome outcome = simulationService.setup(callback, simulationRequest.getBusinessObject());
+        // `callback` is the URL to POST the report to, not an identifier: the simulation session
+        // is ours to name, and its id is what the requester resumes with.
+        String sessionId = UUID.randomUUID().toString();
+        simulationService.registerCallbackUrl(sessionId, callback);
+
+        SetupOutcome outcome = simulationService.setup(sessionId, simulationRequest.getBusinessObject());
 
         JsonMapper mapper = new ObjectMapperBuilder().getBuilder().build();
         AdditionalInstructionsDTO dto = new AdditionalInstructionsDTO( (AdditionalInstructions) outcome);
@@ -75,7 +86,7 @@ public class HelloGazelleSimulatorAPI implements SimulationAPI {
         try {
 
             String result = mapper.writeValueAsString(dto);
-            Response.ResponseBuilder builder = Response.ok(result);
+            Response.ResponseBuilder builder = Response.status(dto.getHttpResponseStatus()).entity(result);
             builder.header("Content-Type", "application/json");
             return builder.build();
 
@@ -95,7 +106,16 @@ public class HelloGazelleSimulatorAPI implements SimulationAPI {
     @Override
     public Response resume(String simulationSessionId) {
 
-        simulationService.runSimulation(simulationSessionId, null);
+        try {
+            simulationService.runSimulation(simulationSessionId, null);
+        } catch (UnknownSimulationException e) {
+            return Response.status(Response.Status.NOT_FOUND).entity(e.getMessage())
+                    .header("Content-Type", "text/plain").build();
+        } catch (AlreadyRunningException e) {
+            return Response.status(Response.Status.CONFLICT).entity(e.getMessage())
+                    .header("Content-Type", "text/plain").build();
+        }
+
         SwitchToExecution resume = new SwitchToExecution();
 
         JsonMapper mapper = new ObjectMapperBuilder().getBuilder().build();
@@ -103,7 +123,7 @@ public class HelloGazelleSimulatorAPI implements SimulationAPI {
 
         try {
             String result = mapper.writeValueAsString(dto);
-            Response.ResponseBuilder builder = Response.ok(result);
+            Response.ResponseBuilder builder = Response.status(dto.getHttpResponseStatus()).entity(result);
             builder.header("Content-Type", "application/json");
             return builder.build();
         } catch (JsonProcessingException e) {
