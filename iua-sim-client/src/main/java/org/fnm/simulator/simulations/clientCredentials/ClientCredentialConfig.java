@@ -114,7 +114,7 @@ public class ClientCredentialConfig {
         if (!message.isBlank()) {
             LOG.error(message);
             AdditionalInstructions additionalInstructions = new AdditionalInstructions();
-            additionalInstructions.setSimulationId(sequenceId);
+            additionalInstructions.setSimulationId(sessionId);
             additionalInstructions.setInstruction(message);
             return additionalInstructions; // new SwitchToExecution();
         }

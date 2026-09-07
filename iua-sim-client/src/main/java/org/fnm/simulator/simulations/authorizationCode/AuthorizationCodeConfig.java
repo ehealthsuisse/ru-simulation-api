@@ -177,7 +177,7 @@ public class AuthorizationCodeConfig {
     private @NonNull AdditionalInstructions getAdditionalInstructions(String message) {
         LOG.error(message);
         AdditionalInstructions additionalInstructions = new AdditionalInstructions();
-        additionalInstructions.setSimulationId(sequenceId);
+        additionalInstructions.setSimulationId(sessionId);
         additionalInstructions.setInstruction(message);
         return additionalInstructions;
     }
