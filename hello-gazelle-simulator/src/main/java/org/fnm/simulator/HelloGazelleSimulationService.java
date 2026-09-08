@@ -35,7 +35,7 @@ public class HelloGazelleSimulationService implements SimulationService {
 
     private static final Logger LOG = Logger.getLogger(HelloGazelleSimulationService.class);
 
-    public static final String SEQUENCE_ID = "001";
+    public static final String SEQUENCE_ID = "Hello Gazelle";
 
     @ConfigProperty(name = "version")
     String version;
