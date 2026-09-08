@@ -39,7 +39,6 @@ public class AuthorizationCodeRequestAction {
         StringBuilder queryString = new StringBuilder();
         queryString.append("response_type=code");
         queryString.append("&client_id=").append(encode(config.clientId));
-        // queryString.append("&client_secret=").append(config.clientSecret); // TODO do we need the secret?
         queryString.append("&state=123456789");
         queryString.append("&redirect_uri=").append(encode(config.redirectUri));
         queryString.append("&scope=").append(encode(config.scope));
@@ -62,7 +61,7 @@ public class AuthorizationCodeRequestAction {
         URI uri = URI.create(config.codeEndpointUrl + "?" + queryString);
 
         // add the http basic auth header for user authentication
-        String authHeader = buildAuthHeader(config.basicAuthUser, config.basicAuthPassword);
+        String authHeader = buildAuthHeader(config.clientId, config.clientSecret);
 
         HttpRequest httpRequest = HttpRequest.newBuilder()
                 .uri(uri)

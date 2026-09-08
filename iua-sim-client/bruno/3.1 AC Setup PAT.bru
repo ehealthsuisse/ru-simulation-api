@@ -1,7 +1,7 @@
 meta {
   name: 3.1 AC Setup PAT
   type: http
-  seq: 6
+  seq: 7
 }
 
 post {
@@ -23,21 +23,11 @@ body:json {
         "name": "code_endpoint_url",
         "type": "TEXT",
         "value": "http://localhost:9000/authorize"
-      },
-      {
-        "name": "basic_auth_user",
-        "type": "TEXT",
-        "value": "ac-user"
-      }, 
-      {
-        "name": "basic_auth_password",
-        "type": "TEXT",
-        "value": "ac-password"
       }, 
       {
         "name": "token_endpoint_url",
         "type": "TEXT",
-        "value": "http://iua-sim-serv:9000/token"
+        "value": "http://localhost:9000/token"
       },
       {
         "name": "client_id",

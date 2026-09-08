@@ -36,10 +36,6 @@ public class AuthorizationCodeConfig {
     // URL of the code endpoint of the system under test.
     public String codeEndpointUrl;
 
-    // user credentials for http basic auth scheme used to authenticate the user
-    public String basicAuthUser;
-    public String basicAuthPassword;
-
     // URL of the token endpoint of the system under test.
     public String tokenEndpointUrl;
 
@@ -123,12 +119,6 @@ public class AuthorizationCodeConfig {
         StringBuilder builder = new StringBuilder();
         if (codeEndpointUrl == null || codeEndpointUrl.isBlank())
             builder.append("Authorization code endpoint URL is not set.");
-
-        if (basicAuthUser == null || basicAuthUser.isBlank())
-            builder.append("The username for http basic authentication is not set.");
-
-        if (basicAuthPassword == null || basicAuthPassword.isBlank())
-            builder.append("The users passphrase for http basic authentication is not set.");
 
         if (codeEndpointUrl == null || codeEndpointUrl.isBlank())
             builder.append("Authorization code endpoint URL is not set.");
