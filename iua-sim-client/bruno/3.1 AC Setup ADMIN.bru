@@ -1,7 +1,7 @@
 meta {
   name: 3.1 AC Setup ADMIN
   type: http
-  seq: 8
+  seq: 9
 }
 
 post {
@@ -25,19 +25,9 @@ body:json {
         "value": "http://localhost:9000/authorize"
       },
       {
-        "name": "basic_auth_user",
-        "type": "TEXT",
-        "value": "ac-user"
-      }, 
-      {
-        "name": "basic_auth_password",
-        "type": "TEXT",
-        "value": "ac-password"
-      }, 
-      {
         "name": "token_endpoint_url",
         "type": "TEXT",
-        "value": "http://iua-sim-serv:9000/token"
+        "value": "http://localhost:9000/token"
       },
       {
         "name": "client_id",
