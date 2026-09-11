@@ -1,140 +1,26 @@
 package org.fnm.simulator.ressource;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Path;
-import jakarta.ws.rs.core.Response;
-import net.ihe.gazelle.modelmarshaller.technical.jackson.ObjectMapperBuilder;
-import net.ihe.gazelle.simulation.business.sequence.*;
-import net.ihe.gazelle.simulation.business.setup.AdditionalInstructions;
-import net.ihe.gazelle.simulation.business.setup.SetupOutcome;
-import net.ihe.gazelle.simulation.business.setup.SwitchToExecution;
-import net.ihe.gazelle.simulation.business.setup.AlreadyRunningException;
-import net.ihe.gazelle.simulation.business.setup.UnknownSimulationException;
-import net.ihe.gazelle.simulation.jaxrs.api.technical.dto.sequence.ChecksumDTO;
-import net.ihe.gazelle.simulation.jaxrs.api.technical.dto.sequence.SimulationSequenceDTO;
-import net.ihe.gazelle.simulation.jaxrs.api.technical.dto.setup.AdditionalInstructionsDTO;
-import net.ihe.gazelle.simulation.jaxrs.api.technical.dto.setup.SimulationRequestDTO;
-import net.ihe.gazelle.simulation.jaxrs.api.technical.dto.setup.SwitchToExecutionDTO;
-import net.ihe.gazelle.simulation.jaxrs.api.technical.ws.SimulationAPI;
-import org.fnm.simulator.IUAClientSimulationService;
-import org.jboss.logging.Logger;
+import net.ihe.gazelle.simulation.business.sequence.SimulationChecksumService;
+import net.ihe.gazelle.simulation.business.sequence.SimulationSequenceService;
+import net.ihe.gazelle.simulation.jaxrs.server.business.SimulationManager;
+import net.ihe.gazelle.simulation.jaxrs.server.technical.SimulationController;
 
-import java.util.List;
-import java.util.UUID;
-import java.util.zip.CRC32;
-
-
+/**
+ * The Simulation Service API endpoints.
+ * <p>
+ * The wire contract -- status codes, the checksum object, session ids, the report POSTed to the
+ * callback URL and the simulation timeout -- is the Gazelle {@link SimulationController}'s. What this
+ * simulator does is in {@link org.fnm.simulator.IUAClientSimulationService}.
+ */
 @Path("")
-public class IUAClientSimulatorAPI implements SimulationAPI {
-
-    private static final Logger LOG = Logger.getLogger(IUAClientSimulatorAPI.class);
+public class IUAClientSimulatorAPI extends SimulationController {
 
     @Inject
-    IUAClientSimulationService simulationService;
-
-    @Override
-    public Response getSimulationSequences() {
-
-        SimulationSequence clientCredentialSequence = simulationService.getClientCredentialSequence();
-        SimulationSequence authorizationCodeSequence = simulationService.getAuthorizationCodeSequence();
-
-        JsonMapper mapper = new ObjectMapperBuilder().getBuilder().build();
-        SimulationSequenceDTO clientCredentialSequenceDTO = new SimulationSequenceDTO(clientCredentialSequence);
-        SimulationSequenceDTO authorizationCodeSequenceDTO = new SimulationSequenceDTO(authorizationCodeSequence);
-
-        try {
-
-            Response.ResponseBuilder builder = Response.ok(
-                    mapper.writeValueAsString(
-                    List.of(clientCredentialSequenceDTO, authorizationCodeSequenceDTO)));
-            builder.header("Content-Type", "application/json");
-            return builder.build();
-
-        } catch (JsonProcessingException e) {
-            throw new RuntimeException(e);
-        }
+    public IUAClientSimulatorAPI(SimulationChecksumService simulationChecksumService,
+                                 SimulationSequenceService simulationSequenceService,
+                                 SimulationManager simulationManager) {
+        super(simulationChecksumService, simulationSequenceService, simulationManager);
     }
-
-    @Override
-    public Response getSimulationSequencesChecksum() {
-        CRC32 crc = new CRC32();
-        crc.update(simulationService.getClientCredentialSequence().hashCode());
-        crc.update(simulationService.getAuthorizationCodeSequence().hashCode());
-        // The API returns a Checksum object, hexadecimal in 08 format -- not a bare number.
-        ChecksumDTO checksum = new ChecksumDTO(String.format("0x%08X", crc.getValue()));
-        Response.ResponseBuilder builder = Response.ok(checksum);
-        builder.header("Content-Type", "application/json");
-        return builder.build();
-    }
-
-    /**
-     * Setup the simulation with the given information
-     *
-     * @param callback called callback in the SimulationAPI interface. Shall be a unique identifier for the test session.
-     * @param simulationRequest the information required for a single simulation run
-     * @return the SetupOutcome
-     */
-    @Override
-    public Response setup(String callback, SimulationRequestDTO simulationRequest) throws RuntimeException {
-
-        // `callback` is the URL to POST the report to, not an identifier: the simulation session
-        // is ours to name, and its id is what the requester resumes with.
-        String sessionId = UUID.randomUUID().toString();
-        simulationService.registerCallbackUrl(sessionId, callback);
-
-        SetupOutcome outcome = simulationService.setup(sessionId, simulationRequest.getBusinessObject());
-
-        JsonMapper mapper = new ObjectMapperBuilder().getBuilder().build();
-        AdditionalInstructionsDTO dto = new AdditionalInstructionsDTO( (AdditionalInstructions) outcome);
-
-        try {
-
-            String result = mapper.writeValueAsString(dto);
-            Response.ResponseBuilder builder = Response.status(dto.getHttpResponseStatus()).entity(result);
-            builder.header("Content-Type", "application/json");
-            return builder.build();
-
-        } catch (JsonProcessingException e) {
-            throw new RuntimeException(e);
-        }
-
-
-    }
-
-    /**
-     * run the simulation with the session id
-     *
-     * @param simulationSessionId the session id of the simulation
-     * @return the SwitchToExecution
-     */
-    @Override
-    public Response resume(String simulationSessionId) {
-
-        try {
-            simulationService.runSimulation(simulationSessionId, null);
-        } catch (UnknownSimulationException e) {
-            return Response.status(Response.Status.NOT_FOUND).entity(e.getMessage())
-                    .header("Content-Type", "text/plain").build();
-        } catch (AlreadyRunningException e) {
-            return Response.status(Response.Status.CONFLICT).entity(e.getMessage())
-                    .header("Content-Type", "text/plain").build();
-        }
-
-        SwitchToExecution resume = new SwitchToExecution();
-
-        JsonMapper mapper = new ObjectMapperBuilder().getBuilder().build();
-        SwitchToExecutionDTO dto = new SwitchToExecutionDTO(resume);
-
-        try {
-            String result = mapper.writeValueAsString(dto);
-            Response.ResponseBuilder builder = Response.status(dto.getHttpResponseStatus()).entity(result);
-            builder.header("Content-Type", "application/json");
-            return builder.build();
-        } catch (JsonProcessingException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
 }
