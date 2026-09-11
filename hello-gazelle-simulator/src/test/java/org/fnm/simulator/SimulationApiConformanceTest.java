@@ -33,6 +33,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *   <li>the {@code simulationId} in those instructions is what resume accepts;</li>
  *   <li>the report is POSTed to the callback URL supplied at setup.</li>
  * </ul>
+ * Most of this is the Gazelle {@code SimulationController} and simulation manager rather than code
+ * of this simulator; the tests pin the wiring, so that a change to it cannot quietly break the contract.
  */
 @QuarkusTest
 class SimulationApiConformanceTest {
