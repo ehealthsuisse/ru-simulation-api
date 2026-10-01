@@ -39,7 +39,7 @@ public class IUAClientSimulationService implements SimulationService {
 
     private static final Logger LOG = Logger.getLogger(IUAClientSimulationService.class);
 
-    public static final String CLIENT_CREDENTIAL_SEQUENCE_ID = "c74f063b-fb76-405e-8fa3-b2632b5c112f";
+    public static final String CLIENT_CREDENTIAL_SEQUENCE_ID = "Client Credential Flow";
     public static final String AUTHORIZATION_CODE_SEQUENCE_ID = "0064e130-cf31-40f5-ad62-163af639b360";
 
     @ConfigProperty(name = "version")
