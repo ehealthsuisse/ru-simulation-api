@@ -10,6 +10,21 @@ For local testing you may run this application from the terminal or in a docker 
 of the Gazelle Test Environment. The project also contains a [bruno 4.0.0](https://www.usebruno.com/downloads) 
 collection of http transactions to simulate the api calls for test setup and resume and the simulation sequences.  
 
+## How the simulator is put together
+
+A simulator implements two business interfaces of the Gazelle simulation framework, both in
+`HelloGazelleSimulationService`:
+
+- `SimulationSequenceService` -- the sequences the simulator offers, with their parameters;
+- `SimulationService` -- `setup` prepares a session for a request, `runSimulation` performs it and
+  hands the report to the `SimulationCallback` it is given.
+
+The Simulation Service API itself comes from the framework: the REST endpoints and their status
+codes, the sequences checksum, the session ids, posting the report to the callback URL and
+enforcing the timeout requested at setup. `HelloGazelleSimulatorAPI` extends `SimulationController`
+for that, `HelloGazelleSimulationManagerFactory` connects the service to the framework's
+`SimulationManager`, and `HelloGazelleMetadataService` names the service in the reports.
+
 ## Running the application in dev mode
 
 You can run your application in dev mode that enables live coding using:
