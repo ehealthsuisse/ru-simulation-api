@@ -1,0 +1,19 @@
+{
+  "name": "IUA Client Simulator",
+  "version": "1.0.0",
+  "instanceId": "b0bc3081",
+  "replicaId": "001",
+  "description": "This service is used to simulate the transaction Get Access Token [ITI-71] of CH:IUA",
+  "providedInterfaces": [
+    {
+      "interfaceName": "Simulation Service API",
+      "interfaceVersion": "1.0.0",
+      "bindings": [
+        {
+          "@type": "REST",
+          "serviceUrl": "https://pprod-ehealthsuisse.ihe-europe.net/iua-sim-client"
+        }
+      ]
+    }
+  ]
+}

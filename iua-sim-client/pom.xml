@@ -8,6 +8,12 @@
 
     <properties>
         <compiler-plugin.version>3.14.1</compiler-plugin.version>
+        <!-- The image pipeline builds the image with -Dquarkus.container-image.build=true,
+             overriding registry and group. Off by default so that a plain mvn package
+             needs no Docker daemon. -->
+        <quarkus.container-image.build>false</quarkus.container-image.build>
+        <quarkus.container-image.registry>your.registry</quarkus.container-image.registry>
+        <quarkus.container-image.group>your-image-group</quarkus.container-image.group>
         <maven.compiler.release>25</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
@@ -17,13 +23,6 @@
         <skipITs>true</skipITs>
         <surefire-plugin.version>3.5.4</surefire-plugin.version>
     </properties>
-
-
-    <parent>
-        <groupId>net.ihe.gazelle</groupId>
-        <artifactId>factory-bom-jdk21-quarkus-3-27</artifactId>
-        <version>1.1.1</version>
-    </parent>
 
     <dependencyManagement>
         <dependencies>

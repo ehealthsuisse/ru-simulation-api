@@ -1,0 +1,24 @@
+services:
+  iua-sim-client:
+    container_name: iua-sim-client
+    image: ${REGISTRY_APP}/iua-sim-client:${APP_VERSION}
+    volumes:
+      - "/etc/timezone:/etc/timezone:ro"
+      - "/etc/localtime:/etc/localtime:ro"
+      - "/opt/iua-sim-client:/deployments/logs"
+    env_file:
+      - ${GZL_COMPOSE_ENV_FILE:-.env}
+    restart: always
+    network_mode: "host"
+    healthcheck:
+      test: [ "CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/${QUARKUS_HTTP_PORT}; printf \"GET /iua-sim-client/health HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n\" >&3; grep -q \"200 OK\" <&3'" ]
+      interval: ${HEALTHCHECK_INTERVAL}
+      timeout: ${HEALTHCHECK_TIMEOUT}
+      retries: ${HEALTHCHECK_RETRIES}
+      start_period: ${HEALTHCHECK_START_PERIOD}
+    logging:
+      options:
+        max-size: "${MAX_SIZE}"
+        max-file: "${MAX_FILE}"
+    mem_reservation: ${MEM_RESERVATION}
+    mem_limit: ${MEM_LIMIT}

@@ -60,7 +60,21 @@ You can run your application in dev mode that enables live coding using:
 ./mvnw quarkus:dev
 ```
 
-> **_NOTE:_**  Quarkus ships with a Dev UI, which is available in dev mode only at <http://localhost:8080/q/dev/>.
+> **_NOTE:_**  Quarkus ships with a Dev UI, which is available in dev mode only at <http://localhost:8080/iua-sim-client/q/dev/>.
+
+The simulator serves everything under the root path `/iua-sim-client`: the Simulation Service API at
+<http://localhost:8080/iua-sim-client/simulation/v1/>, the health check at
+<http://localhost:8080/iua-sim-client/health> and the mock OIDC endpoints at
+<http://localhost:8080/iua-sim-client/mock/>. Register it in a service registry with the base URL
+`http://<host>:<port>/iua-sim-client`.
+
+## Deploying with docker compose
+
+`docker-compose.yaml` reads its settings from a `.env` file next to it. Copy `.env.example` to
+`.env` and adjust it; `.env` is gitignored. `QUARKUS_HTTP_PORT` sets the port, and
+`SIMULATIONSERVICEURL` the public URL the simulator announces when it runs behind a reverse proxy.
+`service_metadata.json` is the entry to add to the service registry's `services.json` when the
+service is registered by file.
 
 ## Run docker image in bridge network
 
@@ -71,7 +85,7 @@ docker network create my_network
 
 compile: 
 ```
-./mvnw clean package -Dmaven.javadoc.skip=true
+./mvnw clean package
 ```
 
 build the image iua-sim-client:
